@@ -2,6 +2,7 @@
 Модуль для создания модели Faster R-CNN
 """
 import torchvision
+from torchvision.models.detection import FasterRCNN_ResNet50_FPN_Weights
 from src.config import PRETRAINED_BACKBONE
 
 def get_model(num_classes, pretrained_backbone=PRETRAINED_BACKBONE):
@@ -17,7 +18,7 @@ def get_model(num_classes, pretrained_backbone=PRETRAINED_BACKBONE):
     """
     # Загружаем предобученную модель
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
-        pretrained=pretrained_backbone
+        weights=FasterRCNN_ResNet50_FPN_Weights.DEFAULT
     )
     
     # Получаем количество входных features для классификатора
