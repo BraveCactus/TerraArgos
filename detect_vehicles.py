@@ -11,7 +11,7 @@ import torchvision.transforms as T
 from pycocotools.coco import COCO
 
 from src.models.faster_rcnn import get_model
-from src.config import DEVICE, get_data_paths
+from src.config import DEVICE, THRESHOLD, get_data_paths
 
 def get_num_classes(annotation_path):
     """
@@ -36,7 +36,7 @@ def load_trained_model():
     print(f"Модель загружена! Классы: {num_classes}")
     return model, num_classes
 
-def detect_vehicles(model, image_path, confidence_threshold=0.15):
+def detect_vehicles(model, image_path, confidence_threshold=THRESHOLD):
     """Детектирует транспорт на одном изображении"""    
     
     image = Image.open(image_path).convert("RGB")
@@ -44,7 +44,7 @@ def detect_vehicles(model, image_path, confidence_threshold=0.15):
     image_tensor = transform(image).unsqueeze(0).to(DEVICE)    
     
     with torch.no_grad():
-        predictions = model(image_tensor)    
+        predictions = model(image_tensor)  
     
     pred = predictions[0]
     boxes = pred['boxes'].cpu().numpy()
@@ -100,7 +100,7 @@ def find_image_path_by_id(img_dir, image_id):
     
     return None
 
-def main():
+def main(images_to_process):
     """Основная функция детекции"""
     print("Детекция объектов на изображениях")
     print("=" * 50)    
@@ -117,7 +117,7 @@ def main():
     
     print(f"Всего изображений в валидации: {len(val_dataset)}")    
     
-    num_images = min(10, len(val_dataset))
+    num_images = min(images_to_process, len(val_dataset))
     
     for i in range(num_images):
         print(f"\n Обработка изображения {i+1}/{num_images}...")
@@ -149,4 +149,4 @@ def main():
     print(f"\nГотово! Результаты сохранены в: {output_dir}")
 
 if __name__ == "__main__":
-    main()
+    main(30)

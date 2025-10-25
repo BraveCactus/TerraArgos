@@ -26,6 +26,10 @@ WEIGHT_DECAY = 0.0005
 STEP_SIZE = 3
 GAMMA = 0.1
 
+# Пороги согласий
+DETECT_THRESHOLD = 0.5
+IOU_TRESHHOLD = 0.5
+
 # Настройки устройства
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 

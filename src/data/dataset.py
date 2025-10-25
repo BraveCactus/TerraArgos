@@ -74,3 +74,21 @@ def get_num_classes(annotation_path):
     coco = COCO(annotation_path)
     cat_ids = coco.getCatIds()
     return 1 + len(cat_ids)  # +1 для background класса
+
+def get_names_classes(annotation_path):
+    """
+    Получает присутсвующие в датасете классы
+    Args:
+        annotation_path (str): путь к JSON файлу с аннотациями
+    
+    Returns:
+        dict[str, int]: словарь классов {имя_класса: id_класса}
+    """
+    coco = COCO(annotation_path)
+    cat_ids = coco.getCatIds()
+    categories = coco.loadCats(cat_ids)
+    cat_names = [cat['name'] for cat in categories]
+
+    cat_dict = {name: id for name, id in zip(cat_names, cat_ids)}    
+
+    return cat_dict

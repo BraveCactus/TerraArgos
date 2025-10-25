@@ -11,9 +11,10 @@ from pathlib import Path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.config import *
-from src.data.dataset import CocoDetectionForFasterRCNN, get_num_classes
+from src.data.dataset import CocoDetectionForFasterRCNN, get_num_classes, get_names_classes
 from src.data.dataloader import create_data_loaders
 from src.models.faster_rcnn import get_model, freeze_backbone, unfreeze_backbone
+from src.models.metrics import calculate_metrics
 from src.training.trainer import train_one_epoch, save_checkpoint, save_best_model
 from src.training.utils import setup_optimizer, setup_scheduler
 
@@ -55,8 +56,8 @@ def main():
         return
     
     # Получаем пути к данным
-    img_dir, train_ann, val_ann = get_data_paths()
-    
+    img_dir, train_ann, val_ann = get_data_paths()  
+ 
     # 2. Создание датасетов
     print("\n2. Создание датасетов...")
     try:
@@ -86,15 +87,12 @@ def main():
         num_classes = get_num_classes(train_ann)
         model = get_model(num_classes)
         model.to(DEVICE)
-        print(f"Количество классов: {num_classes}")
-        
-        # Покажем категории
-        from pycocotools.coco import COCO
-        coco = COCO(train_ann)
-        categories = coco.loadCats(coco.getCatIds())
-        print("Категории в датасете:")
-        for cat in categories:
-            print(f"  - {cat['name']} (id: {cat['id']})")
+
+        classes = get_names_classes(train_ann)
+
+        print(f"Категорий в датасете: {len(classes)}")
+        for name, id in classes.items():
+            print(f"\t - {name}: (id:{id})")
             
     except Exception as e:
         print(f"Ошибка при создании модели: {e}")
@@ -122,7 +120,14 @@ def main():
         try:
             avg_loss = train_one_epoch(model, optimizer, train_loader, DEVICE, epoch, "A")
             scheduler.step()
+
+            # Вычисление метрик
+            accuracy = calculate_metrics(model, val_loader, DEVICE)
             
+            print(f"Результат эпохи {epoch+1}:")
+            print(f"\tLoss: {avg_loss}")
+            print(f"\Accuracy: {accuracy}")
+
             # Сохраняем чекпоинт
             checkpoint_path = model_dir / f"stage_a_epoch_{epoch+1}.pth"
             save_checkpoint(model, optimizer, scheduler, epoch, avg_loss, checkpoint_path)
@@ -160,5 +165,5 @@ def main():
     print(f"Финальная модель сохранена: {final_model_path}")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":    
     main()
