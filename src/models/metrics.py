@@ -14,13 +14,11 @@ def calculate_metrics(model, dataloader, device, detect_threshhold=DETECT_THRESH
         detect_threshhold: порог согласия с классом объекта
         iou_treshold: порог согласия с точностью определения прямоугольника (box)
     """
-    model.eval()
+    model.eval()    
 
-    predictions = model(images)
-
-    correct_predictions = 0
-    total_predictions = 0
-    missed_objects = 0
+    total_tp = 0  # True Positive
+    total_fp = 0  # False Positive  
+    total_fn = 0  # False Negative
 
     with torch.no_grad():
         for images, targets in dataloader:
@@ -37,29 +35,39 @@ def calculate_metrics(model, dataloader, device, detect_threshhold=DETECT_THRESH
                 pred_vehicles = len(pred_boxes)
                 true_vehicles = len(true_boxes)
 
+                image_tp = 0
+                image_tn = 0
+                image_fp = 0
+                image_fn = 0               
+
                 # FN
                 if (pred_vehicles == 0 and true_vehicles > 0):
-                    missed_objects += true_vehicles
-                    continue
+                    image_fn += true_vehicles                    
 
                 # FP
-                if (pred_vehicles > 0 and true_vehicles == 0):
-                    total_predictions += pred_vehicles
-                    continue
+                elif (pred_vehicles > 0 and true_vehicles == 0):
+                    image_fp += pred_vehicles   
 
-                # TP+TN
-                if (pred_vehicles > 0 and true_vehicles > 0):
+                # TP
+                elif (pred_vehicles > 0 and true_vehicles > 0):
                     iou_matrix = box_iou(pred_boxes, true_boxes)
 
                     for true_idx in range(len(true_boxes)):
                         best_iou = torch.max(iou_matrix[:, true_idx]).item()
-                        if best_iou > iou_treshold:
-                            correct_predictions += 1
+                        if best_iou >= iou_treshold:
+                            image_tp += 1
     
                     
-                    total_predictions += len(pred_boxes)                    
-                    missed_objects += max(0, len(true_boxes) - correct_predictions)    
+                    image_fp = pred_vehicles - image_tp  
+                    image_fn = true_vehicles - image_tp 
+
+                total_tp += image_tp
+                total_fp += image_fp
+                total_fn += image_fn
         
-        accuracy = correct_predictions / (total_predictions + missed_objects)
+        if (total_tp + total_fp + total_fn) > 0:
+            accuracy = total_tp / (total_tp + total_fp + total_fn)
+        else:
+            accuracy = 0.0
         
         return accuracy

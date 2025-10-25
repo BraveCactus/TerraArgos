@@ -126,7 +126,7 @@ def main():
             
             print(f"Результат эпохи {epoch+1}:")
             print(f"\tLoss: {avg_loss}")
-            print(f"\Accuracy: {accuracy}")
+            print(f"\tAccuracy: {accuracy}")
 
             # Сохраняем чекпоинт
             checkpoint_path = model_dir / f"stage_a_epoch_{epoch+1}.pth"
