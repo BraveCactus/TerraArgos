@@ -148,6 +148,13 @@ def main():
         try:
             avg_loss = train_one_epoch(model, optimizer, train_loader, DEVICE, epoch, "B")
             scheduler.step()
+
+            # Вычисление метрик
+            accuracy = calculate_metrics(model, val_loader, DEVICE)
+            
+            print(f"Результат эпохи {epoch+1}:")
+            print(f"\tLoss: {avg_loss}")
+            print(f"\tAccuracy: {accuracy}")
             
             # Сохраняем чекпоинт
             checkpoint_path = model_dir / f"stage_b_epoch_{epoch+1}.pth"
