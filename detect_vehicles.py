@@ -5,24 +5,33 @@
 import torch
 import cv2
 import numpy as np
-from pathlib import Path
-from PIL import Image
 import torchvision.transforms as T
 from pycocotools.coco import COCO
+from pathlib import Path
+from PIL import Image
 
 from src.models.faster_rcnn import get_model
-from src.config import DEVICE, THRESHOLD, get_data_paths
+from src.config import DEVICE, DETECT_THRESHOLD, get_data_paths
 
 def get_num_classes(annotation_path):
     """
     Получает количество классов из COCO аннотаций
+
+    Args:
+        annotation_path: путь до аннотации
     """
     coco = COCO(annotation_path)
     cat_ids = coco.getCatIds()
     return 1 + len(cat_ids)  # +1 для background класса
 
 def load_trained_model():
-    """Загружает обученную модель"""
+    """
+    Загружает обученную модель
+    
+    Returns:
+        model: предобученная модель
+        num_classes: количество классов объектов
+    """
     print("Загрузка модели...")
     
     img_dir, train_ann, val_ann = get_data_paths()
@@ -36,8 +45,21 @@ def load_trained_model():
     print(f"Модель загружена! Классы: {num_classes}")
     return model, num_classes
 
-def detect_vehicles(model, image_path, confidence_threshold=THRESHOLD):
-    """Детектирует транспорт на одном изображении"""    
+def detect_vehicles(model, image_path, confidence_threshold=DETECT_THRESHOLD):
+    """
+    Обнаруживает транспорт на одном изображении, отбирает наиболее достоверные прямоугольники
+    
+    Args:
+        model: предобученная модель
+        image_path: путь до изображения
+        confidence_threshold: порог согласия с классом объекта
+
+    Returns:
+        image: изображение
+        boxes: прямоугольники, выделяющие наиболее вероятное местоположение транспорта
+        scores: степень уверенности принадлежности объекта одному из классов
+        labels: индекс классса
+    """    
     
     image = Image.open(image_path).convert("RGB")
     transform = T.Compose([T.ToTensor()])
@@ -62,7 +84,16 @@ def detect_vehicles(model, image_path, confidence_threshold=THRESHOLD):
     return image, boxes, scores, labels
 
 def draw_boxes(image, boxes, scores, labels, output_path):
-    """Рисует рамки на изображении и сохраняет"""
+    """
+    Рисует рамки на изображении и сохраняет
+    
+    Args:
+        image: изображение
+        boxes: координаты верхнего левого и нижнего правого угла прямоугольника [[x1, y1, x2, hy], [], ..]
+        scores: степень уверенности в принадлежности объекта одному из классов (от 0 до 1)
+        labels: индекс класса объекта
+        output_path: директория сохранения обработанных снимков
+    """
     
     # Конвертируем PIL в OpenCV для рисования
     image_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
@@ -80,7 +111,13 @@ def draw_boxes(image, boxes, scores, labels, output_path):
     print(f"Сохранено: {output_path}")
 
 def find_image_path_by_id(img_dir, image_id):
-    """Находит путь к изображению по его COCO ID"""    
+    """
+    Находит путь к изображению по его COCO ID
+    
+    Args:
+        img_dir: директория с изображениями
+        image_id: id изображения
+    """    
     for ext in ['*.jpg', '*.jpeg', '*.png']:
         for img_file in img_dir.glob(ext):
             if str(image_id) in img_file.stem:
@@ -101,7 +138,12 @@ def find_image_path_by_id(img_dir, image_id):
     return None
 
 def main(images_to_process):
-    """Основная функция детекции"""
+    """
+    Основная функция детекции
+    
+    Args:
+        images_to_process: количество обрабатываемых изображений
+    """
     print("Детекция объектов на изображениях")
     print("=" * 50)    
     
