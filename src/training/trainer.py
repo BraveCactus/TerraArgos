@@ -2,8 +2,11 @@
 Модуль для обучения модели
 """
 import torch
+import pandas as pd
 from tqdm import tqdm
 from pathlib import Path
+
+from src.config import DATA_ROOT
 
 def train_one_epoch(model, optimizer, data_loader, device, epoch, stage="A"):
     """
@@ -25,6 +28,8 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, stage="A"):
         desc=f"Stage {stage}, Epoch {epoch+1} [Train]", 
         leave=False
     )
+
+    avg_losses_list = list()
     
     for images, targets in progress_bar:
         # Перемещаем данные на устройство
@@ -43,8 +48,23 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, stage="A"):
         # Обновляем статистику
         total_loss += losses.item()
         avg_loss = total_loss / (progress_bar.n + 1)
+
+        avg_losses_list.append(avg_loss)
+
         progress_bar.set_postfix(loss=f"{avg_loss:.4f}")
-    
+    try:
+        loss_df = pd.DataFrame({"batch_num": range(len(avg_losses_list)),
+                                "avg_loss": avg_losses_list})
+
+        loss_dir_path = Path(f"{DATA_ROOT}/training_losses")
+        loss_dir_path.mkdir(parents=True, exist_ok=True)
+
+        loss_file_path = f"{loss_dir_path}/losses_stage_{stage}_epoch_{epoch+1}.csv"
+        loss_df.to_csv(loss_file_path, index=False)
+        
+        print(f"Потери сохранены в {loss_file_path}")
+    except Exception as e:
+        print(f"Произошла ошибка при сохранении losses в {loss_dir_path}/losses_stage_{stage}_epoch_{epoch+1}.csv: {e}")
     return avg_loss
 
 def save_checkpoint(model, optimizer, scheduler, epoch, loss, filepath):
