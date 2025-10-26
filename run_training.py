@@ -122,7 +122,7 @@ def main():
             scheduler.step()
 
             # Вычисление метрик
-            accuracy = calculate_metrics(model, val_loader, DEVICE)
+            accuracy = calculate_metrics(model, val_loader, DEVICE, "A", epoch)
             
             print(f"Результат эпохи {epoch+1}:")
             print(f"\tLoss: {avg_loss}")
@@ -150,7 +150,7 @@ def main():
             scheduler.step()
 
             # Вычисление метрик
-            accuracy = calculate_metrics(model, val_loader, DEVICE)
+            accuracy = calculate_metrics(model, val_loader, DEVICE, "B", epoch)
             
             print(f"Результат эпохи {epoch+1}:")
             print(f"\tLoss: {avg_loss}")
