@@ -56,26 +56,19 @@ def unfreeze_backbone(model):
     print("Backbone разморожен")
 
 
-def get_model_with_anchors(num_classes, anchor_sizes=((32,), (64,), (128,), (256,)), 
-                          anchor_ratios=((0.5, 1.0, 2.0),) * 4):
+def get_model_with_anchors(num_classes, 
+                          anchor_sizes=((8,), (16,), (32,), (64,), (128,)),
+                          anchor_ratios=((0.5, 1.0, 2.0),) * 5):                
     """
-    Простая версия с кастомными anchor'ами
-    
-    Args:
-        num_classes: количество классов
-        anchor_sizes: размеры anchor'ов
-        anchor_ratios: формы anchor'ов
+    Версия с кастомными anchor'ами для FPN
     """   
-    
-    # Берем стандартную модель
+
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
         weights=FasterRCNN_ResNet50_FPN_Weights.DEFAULT
     )
-    
-    # Меняем только anchor generator
+
     model.rpn.anchor_generator = create_anchor_generator(anchor_sizes, anchor_ratios)
-    
-    # Обновляем классификатор (как было)
+
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = torchvision.models.detection.faster_rcnn.FastRCNNPredictor(
         in_features, num_classes

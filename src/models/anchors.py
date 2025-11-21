@@ -1,58 +1,50 @@
 from torchvision.models.detection.rpn import AnchorGenerator
 
-PRESETS = {
-    # Для маленьких машин (20-80 пикселей)
+PRESETS = {    
     'small_vehicles': {
-        'sizes': ((16,), (32,), (64,), (128,)),
-        'ratios': ((0.7, 1.0, 1.3),) * 4
-    },
+        'sizes': ((8,), (16,), (32,), (64,), (128,)),  
+        'ratios': ((0.5, 1.0, 2.0),) * 5               
+    },    
     
-    # Для средних машин (50-200 пикселей) 
     'medium_vehicles': {
-        'sizes': ((32,), (64,), (128,), (256,)),
-        'ratios': ((0.7, 1.0, 1.5),) * 4
-    },
+        'sizes': ((16,), (32,), (64,), (128,), (256,)),  
+        'ratios': ((0.5, 1.0, 2.0),) * 5                 
+    },    
     
-    # Для больших машин (100-400 пикселей)
     'large_vehicles': {
-        'sizes': ((64,), (128,), (256,), (512,)),
-        'ratios': ((0.8, 1.0, 1.2),) * 4
-    },
+        'sizes': ((32,), (64,), (128,), (256,), (512,)),  
+        'ratios': ((0.5, 1.0, 2.0),) * 5                  
+    },    
     
-    # Универсальные (подходят для большинства случаев)
     'default': {
-        'sizes': ((32,), (64,), (128,), (256,)),
-        'ratios': ((0.5, 1.0, 2.0),) * 4
+        'sizes': ((32,), (64,), (128,), (256,), (512,)), 
+        'ratios': ((0.5, 1.0, 2.0),) * 5                
     }
 }
 
-def create_anchor_generator(sizes=((32,), (64,), (128,), (256,)), 
-                          ratios=((0.5, 1.0, 2.0),) * 4):
+def create_anchor_generator(sizes=((32,), (64,), (128,), (256,), (512,)), 
+                          ratios=((0.5, 1.0, 2.0),) * 5):                
     """
-    Создает простой anchor generator
+    Создает anchor generator для FPN (5 feature maps)
     
     Args:
-        sizes: размеры anchor'ов в пикселях
-        ratios: формы anchor'ов
+        sizes: размеры anchor'ов для каждого уровня FPN
+        ratios: формы anchor'ов для каждого уровня FPN
     """
     anchor_generator = AnchorGenerator(
         sizes=sizes,
         aspect_ratios=ratios
     )
     
-    print("Созданы anchor'ы:")
-    print(f"   Размеры: {sizes}")
-    print(f"   Формы: {ratios}")
+    print("Созданы anchor'ы для FPN (5 уровней):")
+    for i, (size, ratio) in enumerate(zip(sizes, ratios)):
+        print(f"   Уровень {i+1}: размеры {size}, формы {ratio}")
     
     return anchor_generator
 
 def create_preset_anchor_generator(preset_name='medium_vehicles'):
     """
     Создает anchor generator из готового пресета
-    
-    Args:
-        preset_name: имя пресета - 'small_vehicles', 'medium_vehicles', 
-                    'large_vehicles', 'default'
     """
     if preset_name not in PRESETS:
         print(f"Пресет {preset_name} не найден, использую 'default'")
