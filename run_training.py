@@ -14,9 +14,10 @@ from src.config import *
 from src.data.dataset import CocoDetectionForFasterRCNN, get_num_classes, get_names_classes
 from src.data.dataloader import create_data_loaders
 from src.models.faster_rcnn import get_model, get_model_with_anchors, freeze_backbone, unfreeze_backbone
-from src.models.metrics import calculate_metrics
+from src.models.metrics import calculate_all_metrics, get_metrics_history, reset_metrics_history
 from src.training.trainer import train_one_epoch, save_checkpoint, save_best_model
 from src.training.utils import setup_optimizer, setup_scheduler
+from src.visualization.metrics_plots import plot_training_progress
 
 def check_data_exists():
     """Проверяет существование данных"""
@@ -49,6 +50,11 @@ def main():
     print("=== Обучение Faster R-CNN с существующими данными ===")
     print(f"DATA_ROOT: {DATA_ROOT}")
     print(f"DEVICE: {DEVICE}")
+    
+    # Сбрасываем историю метрик перед началом обучения
+    reset_metrics_history()
+    loss_history_stage_a = []
+    loss_history_stage_b = []
     
     # 1. Проверка данных
     print("\n1. Проверка данных...")
@@ -85,8 +91,17 @@ def main():
     print("\n3. Создание модели...")
     try:
         num_classes = get_num_classes(train_ann)
-        # model = get_model(num_classes)
-        model = get_model_with_anchors(num_classes)
+        
+        # Выбор модели: стандартная или с кастомными anchor'ами
+        use_custom_anchors = True  # Можете поменять на False для стандартной модели
+        
+        if use_custom_anchors:
+            print("🎯 Использую модель с кастомными anchor'ами")
+            model = get_model_with_anchors(num_classes)
+        else:
+            print("🔧 Использую стандартную модель")
+            model = get_model(num_classes)
+            
         model.to(DEVICE)
 
         classes = get_names_classes(train_ann)
@@ -119,22 +134,33 @@ def main():
     for epoch in range(NUM_EPOCHS_STAGE_A):
         print(f"\n--- Epoch {epoch+1}/{NUM_EPOCHS_STAGE_A} ---")
         try:
+            # Обучение на одной эпохе
             avg_loss = train_one_epoch(model, optimizer, train_loader, DEVICE, epoch, "A")
             scheduler.step()
+            
+            # Сохраняем loss для графика
+            loss_history_stage_a.append(avg_loss)
 
-            # Вычисление метрик
-            accuracy = calculate_metrics(model, val_loader, DEVICE, "A", epoch)
+            # ВЫЧИСЛЕНИЕ ВСЕХ МЕТРИК (3 метрики + графики)
+            accuracy = calculate_all_metrics(model, val_loader, DEVICE, "A", epoch)
             
             print(f"Результат эпохи {epoch+1}:")
-            print(f"\tLoss: {avg_loss}")
-            print(f"\tAccuracy: {accuracy}")
+            print(f"\tLoss: {avg_loss:.4f}")
+            print(f"\tAccuracy (IoU Advanced): {accuracy:.4f}")
 
             # Сохраняем чекпоинт
             checkpoint_path = model_dir / f"stage_a_epoch_{epoch+1}.pth"
             save_checkpoint(model, optimizer, scheduler, epoch, avg_loss, checkpoint_path)
+            
         except Exception as e:
             print(f"Ошибка при обучении эпохи {epoch+1}: {e}")
             break
+    
+    # Строим график прогресса для стадии A
+    print("\n📈 Построение графиков для Stage A...")
+    metrics_hist = get_metrics_history()
+    accuracy_history_stage_a = metrics_hist['iou_advanced'][:NUM_EPOCHS_STAGE_A]  # Берем только accuracy стадии A
+    plot_training_progress(loss_history_stage_a, accuracy_history_stage_a, "A")
     
     # 7. Стадия B: Размороженный backbone
     print("\n7. Стадия B: Обучение с размороженным backbone...")
@@ -147,30 +173,62 @@ def main():
     for epoch in range(NUM_EPOCHS_STAGE_B):
         print(f"\n--- Stage B, Epoch {epoch+1}/{NUM_EPOCHS_STAGE_B} ---")
         try:
+            # Обучение на одной эпохе
             avg_loss = train_one_epoch(model, optimizer, train_loader, DEVICE, epoch, "B")
             scheduler.step()
+            
+            # Сохраняем loss для графика
+            loss_history_stage_b.append(avg_loss)
 
-            # Вычисление метрик
-            accuracy = calculate_metrics(model, val_loader, DEVICE, "B", epoch)
+            # ВЫЧИСЛЕНИЕ ВСЕХ МЕТРИК (3 метрики + графики)
+            accuracy = calculate_all_metrics(model, val_loader, DEVICE, "B", epoch)
             
             print(f"Результат эпохи {epoch+1}:")
-            print(f"\tLoss: {avg_loss}")
-            print(f"\tAccuracy: {accuracy}")
+            print(f"\tLoss: {avg_loss:.4f}")
+            print(f"\tAccuracy (IoU Advanced): {accuracy:.4f}")
             
             # Сохраняем чекпоинт
             checkpoint_path = model_dir / f"stage_b_epoch_{epoch+1}.pth"
             save_checkpoint(model, optimizer, scheduler, epoch, avg_loss, checkpoint_path)
+            
         except Exception as e:
             print(f"Ошибка при обучении эпохи {epoch+1}: {e}")
             break
+    
+    # Строим график прогресса для стадии B
+    print("\n📈 Построение графиков для Stage B...")
+    metrics_hist = get_metrics_history()
+    # Берем только accuracy стадии B (последние NUM_EPOCHS_STAGE_B значений)
+    all_accuracy = metrics_hist['iou_advanced']
+    accuracy_history_stage_b = all_accuracy[-NUM_EPOCHS_STAGE_B:]
+    plot_training_progress(loss_history_stage_b, accuracy_history_stage_b, "B")
     
     # 8. Сохранение финальной модели
     print("\n8. Сохранение финальной модели...")
     final_model_path = model_dir / "final_faster_rcnn.pth"
     save_best_model(model, final_model_path)
     
-    print("\n=== Обучение завершено! ===")
-    print(f"Финальная модель сохранена: {final_model_path}")
+    print("\n" + "="*60)
+    print("=== ОБУЧЕНИЕ ЗАВЕРШЕНО! ===")
+    print("="*60)
+    
+    # Выводим итоговую информацию
+    print(f"✅ Финальная модель сохранена: {final_model_path}")
+    print(f"📊 Все графики метрик сохранены в: {DATA_ROOT}/metrics_plots/")
+    print("\n📈 Созданные графики:")
+    print("   📁 simple_count/     - Метрика сравнения количества объектов")
+    print("   📁 iou_basic/        - Базовая IoU метрика")
+    print("   📁 iou_advanced/     - Продвинутая IoU метрика (основная)")
+    print("   📁 comparison/       - Сравнение всех метрик")
+    print("   📁 training_progress/ - Прогресс обучения (Loss + Accuracy)")
+    print("\n🎯 Рекомендуется анализировать графики в папке 'iou_advanced/'")
+    
+    # Выводим финальные значения метрик
+    final_metrics = get_metrics_history()
+    print(f"\n📊 ФИНАЛЬНЫЕ METРИКИ:")
+    print(f"   Simple Count:    {final_metrics['simple_count'][-1]:.4f}")
+    print(f"   IoU Basic:       {final_metrics['iou_basic'][-1]:.4f}")
+    print(f"   IoU Advanced:    {final_metrics['iou_advanced'][-1]:.4f}")
 
 
 if __name__ == "__main__":    
