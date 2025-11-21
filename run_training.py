@@ -13,7 +13,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 from src.config import *
 from src.data.dataset import CocoDetectionForFasterRCNN, get_num_classes, get_names_classes
 from src.data.dataloader import create_data_loaders
-from src.models.faster_rcnn import get_model, freeze_backbone, unfreeze_backbone
+from src.models.faster_rcnn import get_model, get_model_with_anchors, freeze_backbone, unfreeze_backbone
 from src.models.metrics import calculate_metrics
 from src.training.trainer import train_one_epoch, save_checkpoint, save_best_model
 from src.training.utils import setup_optimizer, setup_scheduler
@@ -85,7 +85,8 @@ def main():
     print("\n3. Создание модели...")
     try:
         num_classes = get_num_classes(train_ann)
-        model = get_model(num_classes)
+        # model = get_model(num_classes)
+        model = get_model_with_anchors(num_classes)
         model.to(DEVICE)
 
         classes = get_names_classes(train_ann)
