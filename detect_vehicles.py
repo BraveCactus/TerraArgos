@@ -164,8 +164,7 @@ def main(images_to_process):
     for i in range(num_images):
         print(f"\n Обработка изображения {i+1}/{num_images}...")
         
-        try:
-            # Получаем изображение и его ID из датасета
+        try:            
             image_tensor, target = val_dataset[i]
             image_id = target['image_id'].item()            
             
