@@ -7,14 +7,13 @@ import torch
 from torch.utils.data import Subset
 from pathlib import Path
 
-# Добавляем src в путь для импорта
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.config import *
 from src.data.dataset import CocoDetectionForFasterRCNN, get_num_classes, get_names_classes
 from src.data.dataloader import create_data_loaders
 from src.models.faster_rcnn import get_model, get_model_with_anchors, freeze_backbone, unfreeze_backbone
-from src.models.metrics import calculate_metrics
+from src.models.metrics import calculate_metrics, plot_training_metrics
 from src.training.trainer import train_one_epoch, save_checkpoint, save_best_model
 from src.training.utils import setup_optimizer, setup_scheduler
 
@@ -45,7 +44,7 @@ def check_data_exists():
     
     return True
 
-def main():
+def main(model_name, use_full_dataset, use_anchors):
     print("=== Обучение Faster R-CNN с существующими данными ===")
     print(f"DATA_ROOT: {DATA_ROOT}")
     print(f"DEVICE: {DEVICE}")
@@ -64,8 +63,8 @@ def main():
         train_dataset = CocoDetectionForFasterRCNN(root=str(img_dir), annFile=str(train_ann))
         val_dataset = CocoDetectionForFasterRCNN(root=str(img_dir), annFile=str(val_ann))
         
-        # ОГРАНИЧИВАЕМ КОЛИЧЕСТВО ДАННЫХ ЕСЛИ ВКЛЮЧЕН DEBUG_MODE
-        if DEBUG_MODE:
+        # ОГРАНИЧИВАЕМ КОЛИЧЕСТВО ДАННЫХ ЕСЛИ ВКЛЮЧЕН DEBUG_MODE ИЛИ НЕ ИСПОЛЬЗУЕМ ПОЛНЫЙ ДАТАСЕТ
+        if not use_full_dataset:
             train_dataset = Subset(train_dataset, indices=range(min(MAX_SAMPLES, len(train_dataset))))
             val_dataset = Subset(val_dataset, indices=range(min(MAX_SAMPLES, len(val_dataset))))
 
@@ -85,8 +84,10 @@ def main():
     print("\n3. Создание модели...")
     try:
         num_classes = get_num_classes(train_ann)
-        # model = get_model(num_classes)
-        model = get_model_with_anchors(num_classes)
+        if use_anchors:
+            model = get_model_with_anchors(num_classes)
+        else:
+            model = get_model(num_classes)        
         model.to(DEVICE)
 
         classes = get_names_classes(train_ann)
@@ -119,19 +120,21 @@ def main():
     for epoch in range(NUM_EPOCHS_STAGE_A):
         print(f"\n--- Epoch {epoch+1}/{NUM_EPOCHS_STAGE_A} ---")
         try:
-            avg_loss = train_one_epoch(model, optimizer, train_loader, DEVICE, epoch, "A")
+            # Вычисление потерь и обучение
+            loss_path = RESULTS_ROOT
+            avg_loss = train_one_epoch(model_name, model, optimizer, train_loader, DEVICE, epoch, "A", filepath=loss_path)
             scheduler.step()
 
             # Вычисление метрик
-            accuracy = calculate_metrics(model, val_loader, DEVICE, "A", epoch)
+            metrics = calculate_metrics(model_name, model, val_loader, DEVICE, "A", epoch)
             
             print(f"Результат эпохи {epoch+1}:")
             print(f"\tLoss: {avg_loss}")
-            print(f"\tAccuracy: {accuracy}")
+            print(f"\tAccuracy: {metrics['accuracy']}, Precision: {metrics['precision']}, Recall: {metrics['recall']}, F1: {metrics['f1']}")
 
             # Сохраняем чекпоинт
-            checkpoint_path = model_dir / f"stage_a_epoch_{epoch+1}.pth"
-            save_checkpoint(model, optimizer, scheduler, epoch, avg_loss, checkpoint_path)
+            checkpoint_path = RESULTS_ROOT
+            save_checkpoint(model_name, model, optimizer, scheduler, epoch, avg_loss, filepath=checkpoint_path)
         except Exception as e:
             print(f"Ошибка при обучении эпохи {epoch+1}: {e}")
             break
@@ -147,31 +150,51 @@ def main():
     for epoch in range(NUM_EPOCHS_STAGE_B):
         print(f"\n--- Stage B, Epoch {epoch+1}/{NUM_EPOCHS_STAGE_B} ---")
         try:
-            avg_loss = train_one_epoch(model, optimizer, train_loader, DEVICE, epoch, "B")
+            # Вычисление потерь и обучение
+            loss_path = RESULTS_ROOT
+            avg_loss = train_one_epoch(model_name, model, optimizer, train_loader, DEVICE, epoch, "B", filepath=loss_path)
             scheduler.step()
 
             # Вычисление метрик
-            accuracy = calculate_metrics(model, val_loader, DEVICE, "B", epoch)
+            metrics = calculate_metrics(model_name, model, val_loader, DEVICE, "B", epoch)
             
             print(f"Результат эпохи {epoch+1}:")
-            print(f"\tLoss: {avg_loss}")
-            print(f"\tAccuracy: {accuracy}")
+            print(f"\tLoss: {avg_loss}")            
+            print(f"\tAccuracy: {metrics['accuracy']}, Precision: {metrics['precision']}, Recall: {metrics['recall']}, F1: {metrics['f1']}")
             
             # Сохраняем чекпоинт
-            checkpoint_path = model_dir / f"stage_b_epoch_{epoch+1}.pth"
-            save_checkpoint(model, optimizer, scheduler, epoch, avg_loss, checkpoint_path)
+            checkpoint_path = RESULTS_ROOT
+            save_checkpoint(model_name, model, optimizer, scheduler, epoch, avg_loss, filepath=checkpoint_path)
         except Exception as e:
             print(f"Ошибка при обучении эпохи {epoch+1}: {e}")
             break
     
     # 8. Сохранение финальной модели
     print("\n8. Сохранение финальной модели...")
-    final_model_path = model_dir / "final_faster_rcnn.pth"
-    save_best_model(model, final_model_path)
+    final_model_path = RESULTS_ROOT
+    save_best_model(model_name,model,filepath=final_model_path)
     
     print("\n=== Обучение завершено! ===")
-    print(f"Финальная модель сохранена: {final_model_path}")
+    print(f"Финальная модель сохранена в {final_model_path}")
+
+    print("\nПостроение графиков метрик...")
+    plot_training_metrics(model_name)
 
 
-if __name__ == "__main__":    
-    main()
+if __name__ == "__main__":
+    print(f"Введите название модели для обучения: ")  
+    model_name = input().strip()
+    print(f"Использовать полный дата сет? (y/n): ")
+    use_full_dataset = input().strip().lower() == 'y'
+    if not use_full_dataset:
+        print("Будет использован ограниченный набор данных для отладки (10 изображений).")
+    else:
+        print("Будет использован полный набор данных.")
+
+    print(f"Использовать anchors в модели? (y/n): ")
+    use_anchors = input().strip().lower() == 'y'
+    if use_anchors:
+        print("Модель будет использовать anchors.")
+    else:
+        print("Модель не будет использовать anchors.")
+    main(model_name, use_full_dataset, use_anchors)

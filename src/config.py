@@ -7,6 +7,8 @@ import torch
 # Пути к данным
 DATA_ROOT = Path("./VME_data").absolute()
 DATA_ROOT.mkdir(parents=True, exist_ok=True)
+RESULTS_ROOT = Path("./results/models").absolute()
+RESULTS_ROOT.mkdir(parents=True, exist_ok=True)
 ARCHIVE_PATH = DATA_ROOT / "VME_CDSI_datasets.zip"
 EXTRACTED_DATA_PATH = DATA_ROOT / "VME_CDSI_datasets"
 
