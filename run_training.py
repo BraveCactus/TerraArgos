@@ -134,7 +134,7 @@ def main(model_name, use_full_dataset, use_anchors):
 
             # Сохраняем чекпоинт
             checkpoint_path = RESULTS_ROOT
-            save_checkpoint(model_name, model, optimizer, scheduler, epoch, avg_loss, filepath=checkpoint_path)
+            save_checkpoint(model_name, model, optimizer, scheduler, stage="A", epoch=epoch, loss=avg_loss, filepath=checkpoint_path)
         except Exception as e:
             print(f"Ошибка при обучении эпохи {epoch+1}: {e}")
             break
@@ -164,7 +164,7 @@ def main(model_name, use_full_dataset, use_anchors):
             
             # Сохраняем чекпоинт
             checkpoint_path = RESULTS_ROOT
-            save_checkpoint(model_name, model, optimizer, scheduler, epoch, avg_loss, filepath=checkpoint_path)
+            save_checkpoint(model_name, model, optimizer, scheduler, stage="B", epoch=epoch, loss=avg_loss, filepath=checkpoint_path)
         except Exception as e:
             print(f"Ошибка при обучении эпохи {epoch+1}: {e}")
             break

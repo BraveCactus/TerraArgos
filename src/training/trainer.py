@@ -102,7 +102,7 @@ def train_one_epoch(model_name, model, optimizer, data_loader, device, epoch, st
     
     return sum(batch_losses) / len(batch_losses) if batch_losses else 0.0
 
-def save_checkpoint(model_name, model, optimizer, scheduler, epoch, loss, filepath=RESULTS_ROOT):
+def save_checkpoint(model_name, model, optimizer, scheduler, stage, epoch, loss, filepath=RESULTS_ROOT):
     """
     Сохраняет чекпоинт модели
     
@@ -111,11 +111,13 @@ def save_checkpoint(model_name, model, optimizer, scheduler, epoch, loss, filepa
         model: модель
         optimizer: оптимизатор
         scheduler: планировщик learning rate
+        stage (str): этап обучения ('A' или 'B')
         epoch (int): номер эпохи
         loss (float): значение потерь
         filepath (str): путь для сохранения
     """
     checkpoint = {
+        'stage': stage,
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
@@ -125,7 +127,7 @@ def save_checkpoint(model_name, model, optimizer, scheduler, epoch, loss, filepa
 
     checkpoint_dir = Path(filepath) / f"{model_name}_results" / "checkpoints"
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    checkpoint_path = checkpoint_dir / f"{model_name}_checkpoint_epoch_{epoch+1}.pt"
+    checkpoint_path = checkpoint_dir / f"{model_name}_checkpoint_stage_{stage}_epoch_{epoch+1}.pt"
     
     torch.save(checkpoint, checkpoint_path)
     print(f"Чекпоинт сохранен: {checkpoint_path}")
@@ -150,7 +152,7 @@ def save_best_model(model_name, model, filepath=RESULTS_ROOT):
     epoch_num = best_epoch_row['epoch']
 
     best_f1 = best_epoch_row['f1']
-    best_model_path = best_model_dir / f"{model_name}_best_f1_{best_f1:.4f}_epoch_{epoch_num}.pt"
+    best_model_path = best_model_dir / f"{model_name}_best_stage_{stage}_epoch_{epoch_num}.pt"
     
     torch.save(model.state_dict(), best_model_path)
     print(f"Лучшая модель сохранена (F1={best_f1:.4f}, stage={stage}, epoch={epoch_num}): {best_model_path}")
