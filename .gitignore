@@ -189,3 +189,7 @@ temp.*
 # Certain folders
 VME_data/
 results/
+
+#Certain files
+find_2.py
+img_acc_sorted_with_filenames.csv
